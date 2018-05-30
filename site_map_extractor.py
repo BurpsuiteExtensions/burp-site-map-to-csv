@@ -29,23 +29,23 @@ class BurpExtender(IBurpExtender, ITab):
 
     def registerExtenderCallbacks(self, callbacks):
 
-        print('Loading Site Map Extractor ...')
+        print('Loading Site Map to CSV ...')
         # Set up extension environment
         self._callbacks = callbacks
         self._helpers = callbacks.getHelpers()
-        self._callbacks.setExtensionName('Site Map Extractor')
+        self._callbacks.setExtensionName('Site Map to CSV')
         self.drawUI()
         self._callbacks.addSuiteTab(self)
-        print('\nSite Map Extractor extension loaded successfully!')
+        print('\nSite Map to CSV extension loaded successfully!')
 
     def drawUI(self):
         self.tab = swing.JPanel()
-        self.uiLabel = swing.JLabel('Site Map Extractor Options')
+        self.uiLabel = swing.JLabel('Site Map to CSV Options')
         self.uiLabel.setFont(Font('Tahoma', Font.BOLD, 14))
         self.uiLabel.setForeground(Color(235,136,0))
 
         self.uiScopeOnly = swing.JRadioButton('In-scope only', True)
-        self.uiScopeAll = swing.JRadioButton('Full site map', False)
+        self.uiScopeAll = swing.JRadioButton('Everything', False)
         self.uiScopeButtonGroup = swing.ButtonGroup()
         self.uiScopeButtonGroup.add(self.uiScopeOnly)
         self.uiScopeButtonGroup.add(self.uiScopeAll)
@@ -58,36 +58,12 @@ class BurpExtender(IBurpExtender, ITab):
         self.uipaneA.setRightComponent(self.uipaneB)
         self.uipaneA.setBorder(BorderFactory.createLineBorder(Color.black))
         
-        # UI for Export <a href Links
-        self.uiLinksPanel = swing.JPanel()
-        self.uiLinksPanel.setPreferredSize(Dimension(200, 75))
-        self.uiLinksPanel.setBorder(EmptyBorder(10,10,10,10))
-        self.uiLinksPanel.setLayout(BorderLayout())
-        self.uiLinksLabel = swing.JLabel("Extract '<a href=' Links")
-        self.uiLinksLabel.setFont(Font('Tahoma', Font.BOLD, 14))
-        self.uiLinksAbs = swing.JCheckBox('Absolute     ', True)
-        self.uiLinksRel = swing.JCheckBox('Relative     ', True)
-        # create a subpanel so Run button will be centred
-        self.uiLinksRun = swing.JButton('Run',actionPerformed=self.extractLinks)
-        self.uiLinksSave = swing.JButton('Save Log to CSV File',actionPerformed=self.savetoCsvFile)
-        self.uiLinksClear = swing.JButton('Clear Log',actionPerformed=self.clearLog)
-        self.uiLinksButtonPanel = swing.JPanel()
-        self.uiLinksButtonPanel.add(self.uiLinksRun)
-        self.uiLinksButtonPanel.add(self.uiLinksSave)
-        self.uiLinksButtonPanel.add(self.uiLinksClear)
-        # add all elements to main Export Links panel
-        self.uiLinksPanel.add(self.uiLinksLabel,BorderLayout.NORTH)
-        self.uiLinksPanel.add(self.uiLinksAbs,BorderLayout.WEST)
-        self.uiLinksPanel.add(self.uiLinksRel,BorderLayout.CENTER)
-        self.uiLinksPanel.add(self.uiLinksButtonPanel,BorderLayout.SOUTH)
-        self.uipaneA.setLeftComponent(self.uiLinksPanel)  # add Export Links panel to splitpane
-        
-        # UI for Export Response Codes
+        # UI for response code filtering
         self.uiCodesPanel = swing.JPanel()
         self.uiCodesPanel.setPreferredSize(Dimension(200, 75))
         self.uiCodesPanel.setBorder(EmptyBorder(10,10,10,10))
         self.uiCodesPanel.setLayout(BorderLayout())
-        self.uiCodesLabel = swing.JLabel('Extract Response Codes')
+        self.uiCodesLabel = swing.JLabel('Response code filters')
         self.uiCodesLabel.setFont(Font('Tahoma', Font.BOLD, 14))
         self.uiRcodePanel = swing.JPanel()
         self.uiRcodePanel.setLayout(GridLayout(1,1))
@@ -98,7 +74,7 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiRcode5xx = swing.JCheckBox('5XX     ', True)
         self.uiCodesRun = swing.JButton('Run',actionPerformed=self.exportCodes)
         self.uiCodesSave = swing.JButton('Save Log to CSV File',actionPerformed=self.savetoCsvFile)
-        self.uiCodesClear = swing.JButton('Clear Log',actionPerformed=self.clearLog)        
+        self.uiCodesClear = swing.JButton('Clear Log')        
         self.uiCodesButtonPanel = swing.JPanel()
         self.uiCodesButtonPanel.add(self.uiCodesRun)
         self.uiCodesButtonPanel.add(self.uiCodesSave)
@@ -111,7 +87,7 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiCodesPanel.add(self.uiCodesLabel,BorderLayout.NORTH)
         self.uiCodesPanel.add(self.uiRcodePanel,BorderLayout.WEST)
         self.uiCodesPanel.add(self.uiCodesButtonPanel,BorderLayout.SOUTH)
-        self.uipaneB.setLeftComponent(self.uiCodesPanel)
+        self.uipaneA.setLeftComponent(self.uiCodesPanel)
 
         # Option 3 UI for Export Sitemap
         self.uiExportPanel = swing.JPanel()
@@ -121,12 +97,12 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiExportLabel = swing.JLabel('Export Site Map to File')
         self.uiExportLabel.setFont(Font('Tahoma', Font.BOLD, 14))
         self.uiMustHaveResponse = swing.JRadioButton('Must have a response     ', True)
-        self.uiAllRequests = swing.JRadioButton('All     ', False)
+        self.uiAllRequests = swing.JRadioButton('All (overrides response code filters)     ', False)
         self.uiResponseButtonGroup = swing.ButtonGroup()
         self.uiResponseButtonGroup.add(self.uiMustHaveResponse)
         self.uiResponseButtonGroup.add(self.uiAllRequests)
-        self.uiExportRun = swing.JButton('Run',actionPerformed=self.exportSiteMap)
-        self.uiExportClear = swing.JButton('Clear Log',actionPerformed=self.clearLog)
+        self.uiExportRun = swing.JButton('Run')
+        self.uiExportClear = swing.JButton('Clear Log')
         self.uiExportButtonPanel = swing.JPanel()
         self.uiExportButtonPanel.add(self.uiExportRun)
         self.uiExportButtonPanel.add(self.uiExportClear)        
@@ -134,12 +110,9 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiExportPanel.add(self.uiMustHaveResponse,BorderLayout.WEST)
         self.uiExportPanel.add(self.uiAllRequests,BorderLayout.CENTER)
         self.uiExportPanel.add(self.uiExportButtonPanel,BorderLayout.SOUTH)
-        self.uipaneB.setRightComponent(self.uiExportPanel)
+        self.uipaneB.setLeftComponent(self.uiExportPanel)
 
         # UI Common Elements
-        self.uiLogLabel = swing.JLabel('Log:')
-        self.uiLogLabel.setFont(Font('Tahoma', Font.BOLD, 14))
-        self.uiLogPane = swing.JScrollPane()
         layout = swing.GroupLayout(self.tab)
         self.tab.setLayout(layout)
         
@@ -157,9 +130,7 @@ class BurpExtender(IBurpExtender, ITab):
                         .addGap(10,10,10)
                         .addComponent(self.uiScopeAll))
                     .addGap(15,15,15)
-                    .addComponent(self.uipaneA)
-                    .addComponent(self.uiLogLabel)
-                    .addComponent(self.uiLogPane))
+                    .addComponent(self.uipaneA))
                 .addContainerGap(26, lang.Short.MAX_VALUE)))
         
         layout.setVerticalGroup(
@@ -174,13 +145,11 @@ class BurpExtender(IBurpExtender, ITab):
                 .addGap(20,20,20)
                 .addComponent(self.uipaneA)
                 .addGap(20,20,20)
-                .addComponent(self.uiLogLabel)
                 .addGap(5,5,5)
-                .addComponent(self.uiLogPane)
                 .addGap(20,20,20)))
 
     def getTabCaption(self):
-        return 'Site Map Extractor'
+        return 'Site Map to CSV'
 
     def getUiComponent(self):
         return self.tab
@@ -190,79 +159,6 @@ class BurpExtender(IBurpExtender, ITab):
             return True
         else:
             return False
-
-    def extractLinks(self, e):
-        self.blankLog()
-        self.siteMapData = self._callbacks.getSiteMap(None)
-        # What links should be extracted? absolute links, relative links, or both?
-        self.destAbs = self.destRel = False
-        if self.uiLinksAbs.isSelected():
-            self.destAbs = True
-        if self.uiLinksRel.isSelected():
-            self.destRel = True
-
-        # Start building JTable to contain the extracted data
-        self.colNames = ('Page', 'Link')
-        self.tableData = []
-        for i in self.siteMapData:
-            self.requestInfo = self._helpers.analyzeRequest(i)
-            self.url = self.requestInfo.getUrl()
-            if self.scopeOnly() and not(self._callbacks.isInScope(self.url)):
-                continue
-
-            self.urlDecode = self._helpers.urlDecode(str(self.url))
-            self.response = i.getResponse()
-            if self.response == None:   # if there's no response, there won't be any links :-)
-                continue
-            
-            self.responseInfo = self._helpers.analyzeResponse(self.response)
-            self.responseOffset = self.responseInfo.getBodyOffset()
-            self.responseBody = self._helpers.bytesToString(self.response)[self.responseOffset:]
-
-            keep_looking = True
-            while keep_looking:    # there may be multiple links in the response
-                i = self.responseBody.find('<a href=')
-                if i == -1:   # no more <a href's found
-                    break
-                self.responseBody = self.responseBody[i+8:]
-                isAbsLink = isRelLink = False
-                # Looking for either " or ' around links which can be either absolute or relative
-                # This assumes that for a link, quoting is consistent at front and back
-                if self.responseBody[0:7].lower() == '"http://':
-                    myOffset = 7
-                    isAbsLink = True
-                    endQuote = '"'
-                elif self.responseBody[0:7].lower() == "'http://":
-                    myOffset = 7
-                    isAbsLink = True
-                    endQuote = "'"                   
-                elif self.responseBody[0:8].lower() == '"https://':
-                    myOffset = 8
-                    isAbsLink = True
-                    endQuote = '"'
-                elif self.responseBody[0:8].lower() == "'https://":
-                    myOffset = 8
-                    isAbsLink = True
-                    endQuote = "'"
-                elif self.responseBody[0:1] == '"':
-                    myOffset = 1
-                    isRelLink = True
-                    endQuote = '"'
-                else:
-                    myOffset = 1
-                    isRelLink = True
-                    endQuote = "'"
-
-                self.responseBody = self.responseBody[myOffset:]
-                pos = self.responseBody.find(endQuote)
-                self.link = self.responseBody[0:pos]
-                if (isAbsLink and self.destAbs) or (isRelLink and self.destRel):
-                    # remove white space and extra CR/LF characters
-                    self.tableData.append([self.stripURLPort(self.urlDecode), self.lstripWS(self.stripCRLF(self.link))])
-
-        dataModel = DefaultTableModel(self.tableData, self.colNames)
-        self.uiLogTable = swing.JTable(dataModel)
-        self.uiLogPane.setViewportView(self.uiLogTable)
 
     def exportCodes(self, e):
         self.blankLog()
@@ -331,37 +227,6 @@ class BurpExtender(IBurpExtender, ITab):
         dataModel = DefaultTableModel(self.tableData, self.colNames)
         self.uiLogTable = swing.JTable(dataModel)
         self.uiLogPane.setViewportView(self.uiLogTable)
-        
-    def exportSiteMap(self,e):
-        self.blankLog()
-        f, ok = self.openFile('txt', 'Text files', 'wb')
-        if ok:        
-            # Retrieve site map data
-            self.siteMapData = self._callbacks.getSiteMap(None)
-            if self.uiMustHaveResponse.isSelected():
-                self.outputAll = False
-            else:
-                self.outputAll = True
-            for i in self.siteMapData:
-                self.myrequest = i.getRequest()  #self._helpers.urlDecode(i.getRequest())
-                self.requestInfo = self._helpers.analyzeRequest(i)
-                self.url = self.requestInfo.getUrl()
-                if self.scopeOnly() and not(self._callbacks.isInScope(self.url)):
-                    continue
-                self.myresponse = i.getResponse()  #self._helpers.urlDecode(i.getResponse())
-                if self.myresponse != None:
-                    f.write('----- REQUEST\r\n')
-                    f.write(self.myrequest)  #self._helpers.urlEncode(self.myrequest))
-                    f.write('\n')
-                    f.write('----- RESPONSE\r\n')
-                    f.write(self.myresponse)  #self._helpers.urlEncode(self.myresponse))
-                    f.write('\n')
-                elif not self.uiMustHaveResponse:
-                    f.write('----- REQUEST\r\n')
-                    f.write(self.myrequest)  #self._helpers.urlEncode(self.myrequest))
-                    f.write('\n')
-            f.close()
-            JOptionPane.showMessageDialog(self.tab,'The Site Map file was successfully written.')
 
     def savetoCsvFile(self,e):
         if self.tableData == []:
@@ -414,20 +279,3 @@ class BurpExtender(IBurpExtender, ITab):
     def stripURLPort(self, url):
         # Thanks to shpendk for this code(https://github.com/PortSwigger/site-map-fetcher/)
         return url.split(':')[0] + ':' + url.split(':')[1] + '/' + url.split(':')[2].split('/',1)[1]
-
-    def blankLogTable(self):
-        self.tableData = []
-        return
-    
-    # This function is used when program wants to clear the log.
-    def blankLog(self):
-        self.uiLogPane.setViewportView(None)
-        self.blankLogTable()
-        return
-
-    # This function is used when the user clicks the Clear Log button.
-    def clearLog(self, e):
-        self.uiLogPane.setViewportView(None)
-        self.blankLogTable()
-        return
-
