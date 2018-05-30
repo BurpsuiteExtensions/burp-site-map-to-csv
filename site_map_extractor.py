@@ -1,3 +1,9 @@
+"""
+Site Map to CSV - Burp Suite plugin
+
+(Python 2.7 code meant for consumption by Burp Suite Jython)
+"""
+
 from burp import IBurpExtender
 from burp import ITab
 from burp import IHttpRequestResponse
@@ -15,10 +21,36 @@ from java.awt import Color
 from java.awt import Font
 from java.awt import Dimension
 from java.awt import GridLayout
+from java.net import URL
 import java.lang as lang
 import os.path
 import csv
 import datetime
+
+_hexdig = '0123456789ABCDEFabcdef'
+_hextochr = dict((a + b, chr(int(a + b, 16)))
+                 for a in _hexdig for b in _hexdig)
+
+def unquote(s):
+    """
+    This is right from Python 2.7, credit to that.
+    Can't import in Jython because urllib import error.
+
+    unquote('abc%20def') -> 'abc def'
+    """
+    res = s.split('%')
+    # fastpath
+    if len(res) == 1:
+        return s
+    s = res[0]
+    for item in res[1:]:
+        try:
+            s += _hextochr[item[:2]] + item[2:]
+        except KeyError:
+            s += '%' + item
+        except UnicodeDecodeError:
+            s += unichr(int(item[:2], 16)) + item[2:]
+    return s
 
 class BurpExtender(IBurpExtender, ITab):
     """
@@ -168,12 +200,7 @@ class BurpExtender(IBurpExtender, ITab):
                 self.url = self.requestInfo.getUrl()
                 if self.scopeOnly() and not(self._callbacks.isInScope(self.url)):
                     continue
-                # Tolerate encode/decode errors
-                try:
-                    self.urlDecode = self._helpers.urlDecode(str(self.url))
-                except:
-                    self.printInfo('Error parsing URL to string')
-                    continue
+                self.urlDecode = self.decodeUrl(self.url)
                 self.response = i.getResponse()
                 if self.response == None:
                     continue
@@ -193,7 +220,7 @@ class BurpExtender(IBurpExtender, ITab):
                     continue
                 if self.firstDigit in ['1','2','4','5']:  # Return codes 1xx, 2xx, 4xx, 5xx
                     try:
-                        self.writer.writerow([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode)])
+                        self.writer.writerow([self.stripURLPort(self.urlDecode), self.decodeUrl(self.referer), str(self.responseCode)])
                     except:
                         self.printInfo('Error writing CSV row or parsing Referer to string')
                         continue
@@ -202,12 +229,7 @@ class BurpExtender(IBurpExtender, ITab):
                     for j in self.responseHeaders:
                         if j.startswith('Location:'):
                             self.location = j.split(' ')[1]
-                    # Tolerate encode/decode errors
-                    try:
-                        self.writer.writerow([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode), self.location])
-                    except:
-                        self.printInfo('Error writing CSV row or parsing Referer to string')
-                        continue
+                    self.writer.writerow([self.stripURLPort(self.urlDecode), self.decodeUrl(self.referer), str(self.responseCode), self.location])
             f.close()
             JOptionPane.showMessageDialog(self.tab,'Full export to CSV file complete.')
 
@@ -251,4 +273,8 @@ class BurpExtender(IBurpExtender, ITab):
         return url.split(':')[0] + ':' + url.split(':')[1] + '/' + url.split(':')[2].split('/',1)[1]
 
     def printInfo(self,string):
-        print(str(datetime.datetime.now()) + string)
+        print(str(datetime.datetime.now()) + ' ' + string)
+
+    def decodeUrl(self,u):
+        # Yes it's not pretty but it seems to work.
+        return self._helpers.urlDecode(unquote(unicode(u,'UTF-8',errors='replace')).decode('UTF-8','replace'))
