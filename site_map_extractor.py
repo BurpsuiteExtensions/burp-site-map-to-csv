@@ -18,17 +18,14 @@ from java.awt import GridLayout
 import java.lang as lang
 import os.path
 import csv
+import datetime
 
 class BurpExtender(IBurpExtender, ITab):
-    #
-    # Implement IBurpExtender
-    #
-
-    tableData = []
-    colNames = ()
+    """
+    Implement IBurpExtender
+    """
 
     def registerExtenderCallbacks(self, callbacks):
-
         print('Loading Site Map to CSV ...')
         # Set up extension environment
         self._callbacks = callbacks
@@ -39,17 +36,19 @@ class BurpExtender(IBurpExtender, ITab):
         print('\nSite Map to CSV extension loaded successfully!')
 
     def drawUI(self):
+        # Make a whole Burp Suite tab just for this plugin
         self.tab = swing.JPanel()
+        # Draw title area
         self.uiLabel = swing.JLabel('Site Map to CSV Options')
         self.uiLabel.setFont(Font('Tahoma', Font.BOLD, 14))
         self.uiLabel.setForeground(Color(235,136,0))
-
+        # UI for high-level options
         self.uiScopeOnly = swing.JRadioButton('In-scope only', True)
-        self.uiScopeAll = swing.JRadioButton('Everything', False)
+        self.uiScopeAll = swing.JRadioButton('All (disregard scope)', False)
         self.uiScopeButtonGroup = swing.ButtonGroup()
         self.uiScopeButtonGroup.add(self.uiScopeOnly)
         self.uiScopeButtonGroup.add(self.uiScopeAll)
-
+        # Draw areas in the tab to keep different UI commands separate
         self.uipaneA = swing.JSplitPane(swing.JSplitPane.HORIZONTAL_SPLIT)
         self.uipaneA.setMaximumSize(Dimension(900,125))
         self.uipaneA.setDividerSize(2)
@@ -57,8 +56,7 @@ class BurpExtender(IBurpExtender, ITab):
         self.uipaneB.setDividerSize(2)
         self.uipaneA.setRightComponent(self.uipaneB)
         self.uipaneA.setBorder(BorderFactory.createLineBorder(Color.black))
-        
-        # UI for response code filtering
+        # Fill in UI area for response code filters
         self.uiCodesPanel = swing.JPanel()
         self.uiCodesPanel.setPreferredSize(Dimension(200, 75))
         self.uiCodesPanel.setBorder(EmptyBorder(10,10,10,10))
@@ -72,13 +70,6 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiRcode3xx = swing.JCheckBox('3XX  ', True)
         self.uiRcode4xx = swing.JCheckBox('4XX  ', True)
         self.uiRcode5xx = swing.JCheckBox('5XX     ', True)
-        self.uiCodesRun = swing.JButton('Run',actionPerformed=self.exportCodes)
-        self.uiCodesSave = swing.JButton('Save Log to CSV File',actionPerformed=self.savetoCsvFile)
-        self.uiCodesClear = swing.JButton('Clear Log')        
-        self.uiCodesButtonPanel = swing.JPanel()
-        self.uiCodesButtonPanel.add(self.uiCodesRun)
-        self.uiCodesButtonPanel.add(self.uiCodesSave)
-        self.uiCodesButtonPanel.add(self.uiCodesClear)
         self.uiRcodePanel.add(self.uiRcode1xx)
         self.uiRcodePanel.add(self.uiRcode2xx)
         self.uiRcodePanel.add(self.uiRcode3xx)
@@ -86,36 +77,30 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiRcodePanel.add(self.uiRcode5xx)
         self.uiCodesPanel.add(self.uiCodesLabel,BorderLayout.NORTH)
         self.uiCodesPanel.add(self.uiRcodePanel,BorderLayout.WEST)
-        self.uiCodesPanel.add(self.uiCodesButtonPanel,BorderLayout.SOUTH)
         self.uipaneA.setLeftComponent(self.uiCodesPanel)
-
-        # Option 3 UI for Export Sitemap
+        # Fill in UI area for initiating export to CSV
         self.uiExportPanel = swing.JPanel()
         self.uiExportPanel.setPreferredSize(Dimension(200, 75))
         self.uiExportPanel.setBorder(EmptyBorder(10,10,10,10))
         self.uiExportPanel.setLayout(BorderLayout())
-        self.uiExportLabel = swing.JLabel('Export Site Map to File')
+        self.uiExportLabel = swing.JLabel('Export')
         self.uiExportLabel.setFont(Font('Tahoma', Font.BOLD, 14))
         self.uiMustHaveResponse = swing.JRadioButton('Must have a response     ', True)
         self.uiAllRequests = swing.JRadioButton('All (overrides response code filters)     ', False)
         self.uiResponseButtonGroup = swing.ButtonGroup()
         self.uiResponseButtonGroup.add(self.uiMustHaveResponse)
         self.uiResponseButtonGroup.add(self.uiAllRequests)
-        self.uiExportRun = swing.JButton('Run')
-        self.uiExportClear = swing.JButton('Clear Log')
+        self.uiExportRun = swing.JButton('Export',actionPerformed=self.exportAndSaveCsv)
         self.uiExportButtonPanel = swing.JPanel()
-        self.uiExportButtonPanel.add(self.uiExportRun)
-        self.uiExportButtonPanel.add(self.uiExportClear)        
+        self.uiExportButtonPanel.add(self.uiExportRun)    
         self.uiExportPanel.add(self.uiExportLabel,BorderLayout.NORTH)
         self.uiExportPanel.add(self.uiMustHaveResponse,BorderLayout.WEST)
         self.uiExportPanel.add(self.uiAllRequests,BorderLayout.CENTER)
         self.uiExportPanel.add(self.uiExportButtonPanel,BorderLayout.SOUTH)
         self.uipaneB.setLeftComponent(self.uiExportPanel)
-
-        # UI Common Elements
+        # Common UI stuff
         layout = swing.GroupLayout(self.tab)
         self.tab.setLayout(layout)
-        
         # Thank you to Smeege (https://github.com/SmeegeSec/Burp-Importer/) for helping me figure out how this works.
         # He in turn gave credit to Antonio Sanchez (https://github.com/Dionach/HeadersAnalyzer/)
         layout.setHorizontalGroup(
@@ -132,7 +117,6 @@ class BurpExtender(IBurpExtender, ITab):
                     .addGap(15,15,15)
                     .addComponent(self.uipaneA))
                 .addContainerGap(26, lang.Short.MAX_VALUE)))
-        
         layout.setVerticalGroup(
             layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
@@ -160,86 +144,72 @@ class BurpExtender(IBurpExtender, ITab):
         else:
             return False
 
-    def exportCodes(self, e):
-        self.blankLog()
-        self.siteMapData = self._callbacks.getSiteMap(None)
-        # response codes to be included
-        self.rcodes = []
-        if self.uiRcode1xx.isSelected():
-            self.rcodes += '1'
-        if self.uiRcode2xx.isSelected():
-            self.rcodes += '2'
-        if self.uiRcode3xx.isSelected():
-            self.rcodes += '3'
-        if self.uiRcode4xx.isSelected():
-            self.rcodes += '4'
-        if self.uiRcode5xx.isSelected():
-            self.rcodes += '5'
-
-        self.colNames = ('Request','Referer','Response Code','Redirects To')
-        self.tableData = []
-
-        for i in self.siteMapData:
-            self.requestInfo = self._helpers.analyzeRequest(i)
-            self.url = self.requestInfo.getUrl()
-            if self.scopeOnly() and not(self._callbacks.isInScope(self.url)):
-                continue
-            try:
-                self.urlDecode = self._helpers.urlDecode(str(self.url))
-            except:
-                print('Error parsing URL')
-                continue
-            self.response = i.getResponse()
-            if self.response == None:
-                continue
-            # Get referer if there is one
-            self.requestHeaders = self.requestInfo.getHeaders()
-            self.referer = ''
-            for j in self.requestHeaders:
-                if j.startswith('Referer:'):
-                    self.fullReferer = j.split(' ')[1]
-                    # drop the querystring parameter
-                    self.referer = self.fullReferer.split('?')[0] 
-            # Get response code
-            self.responseInfo = self._helpers.analyzeResponse(self.response)
-            self.responseCode = self.responseInfo.getStatusCode()
-            self.firstDigit = str(self.responseCode)[0]
-            if self.firstDigit not in self.rcodes:
-                continue
-            if self.firstDigit in ['1','2','4','5']:     # Return codes 1xx, 2xx, 4xx, 5xx
-                try:
-                    self.tableData.append([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode)])
-                except:
-                    print('Error writing Referer to table')
-                    continue
-            elif self.firstDigit == '3':   # Return code 3xx Redirection
-                self.requestHeaders = self.requestInfo.getHeaders()
-                self.responseHeaders = self.responseInfo.getHeaders()
-                for j in self.responseHeaders:
-                    if j.startswith('Location:'):
-                        self.location = j.split(' ')[1]
-                try:
-                    self.tableData.append([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode), self.location])
-                except:
-                    print('Error writing Referer to table')
-                    continue
-
-        dataModel = DefaultTableModel(self.tableData, self.colNames)
-        self.uiLogTable = swing.JTable(dataModel)
-        self.uiLogPane.setViewportView(self.uiLogTable)
-
-    def savetoCsvFile(self,e):
-        if self.tableData == []:
-            JOptionPane.showMessageDialog(self.tab,'The log contains no data.')
-            return
+    def exportAndSaveCsv(self, e):
         f, ok = self.openFile('csv', 'CSV files', 'wb')
         if ok:
+            self.colNames = ('Request','Referer','Response Code','Redirects To')
             self.writer = csv.writer(f)
             self.writer.writerow(list(self.colNames))
-            for i in self.tableData:
-                self.writer.writerow(i)
+            self.siteMapData = self._callbacks.getSiteMap(None)
+            # Figure out response codes to include
+            self.rcodes = []
+            if self.uiRcode1xx.isSelected():
+                self.rcodes += '1'
+            if self.uiRcode2xx.isSelected():
+                self.rcodes += '2'
+            if self.uiRcode3xx.isSelected():
+                self.rcodes += '3'
+            if self.uiRcode4xx.isSelected():
+                self.rcodes += '4'
+            if self.uiRcode5xx.isSelected():
+                self.rcodes += '5'
+            for i in self.siteMapData:
+                self.requestInfo = self._helpers.analyzeRequest(i)
+                self.url = self.requestInfo.getUrl()
+                if self.scopeOnly() and not(self._callbacks.isInScope(self.url)):
+                    continue
+                # Tolerate encode/decode errors
+                try:
+                    self.urlDecode = self._helpers.urlDecode(str(self.url))
+                except:
+                    self.printInfo('Error parsing URL to string')
+                    continue
+                self.response = i.getResponse()
+                if self.response == None:
+                    continue
+                # Get Referer if there is one
+                self.requestHeaders = self.requestInfo.getHeaders()
+                self.referer = ''
+                for j in self.requestHeaders:
+                    if j.startswith('Referer:'):
+                        self.fullReferer = j.split(' ')[1]
+                        # Drop any query parameters
+                        self.referer = self.fullReferer.split('?')[0] 
+                # Get response code
+                self.responseInfo = self._helpers.analyzeResponse(self.response)
+                self.responseCode = self.responseInfo.getStatusCode()
+                self.firstDigit = str(self.responseCode)[0]
+                if self.firstDigit not in self.rcodes:
+                    continue
+                if self.firstDigit in ['1','2','4','5']:  # Return codes 1xx, 2xx, 4xx, 5xx
+                    try:
+                        self.writer.writerow([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode)])
+                    except:
+                        self.printInfo('Error writing CSV row or parsing Referer to string')
+                        continue
+                elif self.firstDigit == '3':  # Return code 3xx Redirection
+                    self.responseHeaders = self.responseInfo.getHeaders()
+                    for j in self.responseHeaders:
+                        if j.startswith('Location:'):
+                            self.location = j.split(' ')[1]
+                    # Tolerate encode/decode errors
+                    try:
+                        self.writer.writerow([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode), self.location])
+                    except:
+                        self.printInfo('Error writing CSV row or parsing Referer to string')
+                        continue
             f.close()
-            JOptionPane.showMessageDialog(self.tab,'The csv file was successfully written.')
+            JOptionPane.showMessageDialog(self.tab,'Full export to CSV file complete.')
 
     def openFile(self, fileext, filedesc, fileparm):
         myFilePath = ''
@@ -279,3 +249,6 @@ class BurpExtender(IBurpExtender, ITab):
     def stripURLPort(self, url):
         # Thanks to shpendk for this code(https://github.com/PortSwigger/site-map-fetcher/)
         return url.split(':')[0] + ':' + url.split(':')[1] + '/' + url.split(':')[2].split('/',1)[1]
+
+    def printInfo(self,string):
+        print(str(datetime.datetime.now()) + string)
