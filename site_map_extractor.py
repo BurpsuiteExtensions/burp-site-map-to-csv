@@ -95,7 +95,7 @@ class BurpExtender(IBurpExtender, ITab):
         self.uiRcode2xx = swing.JCheckBox('2XX  ', True)
         self.uiRcode3xx = swing.JCheckBox('3XX  ', True)
         self.uiRcode4xx = swing.JCheckBox('4XX  ', True)
-        self.uiRcode5xx = swing.JCheckBox('5XX     ', False)
+        self.uiRcode5xx = swing.JCheckBox('5XX     ', True)
         self.uiCodesRun = swing.JButton('Run',actionPerformed=self.exportCodes)
         self.uiCodesSave = swing.JButton('Save Log to CSV File',actionPerformed=self.savetoCsvFile)
         self.uiCodesClear = swing.JButton('Clear Log',actionPerformed=self.clearLog)        
@@ -280,10 +280,7 @@ class BurpExtender(IBurpExtender, ITab):
         if self.uiRcode5xx.isSelected():
             self.rcodes += '5'
 
-        if '3' in self.rcodes:
-            self.colNames = ('Request','Referer','Response Code','Redirects To')
-        else:
-            self.colNames.append('Request','Referer','Response Code')
+        self.colNames = ('Request','Referer','Response Code','Redirects To')
         self.tableData = []
 
         for i in self.siteMapData:
@@ -291,8 +288,11 @@ class BurpExtender(IBurpExtender, ITab):
             self.url = self.requestInfo.getUrl()
             if self.scopeOnly() and not(self._callbacks.isInScope(self.url)):
                 continue
-
-            self.urlDecode = self._helpers.urlDecode(str(self.url))
+            try:
+                self.urlDecode = self._helpers.urlDecode(str(self.url))
+            except:
+                print('Error parsing URL')
+                continue
             self.response = i.getResponse()
             if self.response == None:
                 continue
@@ -311,14 +311,22 @@ class BurpExtender(IBurpExtender, ITab):
             if self.firstDigit not in self.rcodes:
                 continue
             if self.firstDigit in ['1','2','4','5']:     # Return codes 1xx, 2xx, 4xx, 5xx
-                self.tableData.append([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode)])    
+                try:
+                    self.tableData.append([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode)])
+                except:
+                    print('Error writing Referer to table')
+                    continue
             elif self.firstDigit == '3':   # Return code 3xx Redirection
                 self.requestHeaders = self.requestInfo.getHeaders()
                 self.responseHeaders = self.responseInfo.getHeaders()
                 for j in self.responseHeaders:
                     if j.startswith('Location:'):
                         self.location = j.split(' ')[1]
-                self.tableData.append([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode), self.location])
+                try:
+                    self.tableData.append([self.stripURLPort(self.urlDecode), str(self.referer), str(self.responseCode), self.location])
+                except:
+                    print('Error writing Referer to table')
+                    continue
 
         dataModel = DefaultTableModel(self.tableData, self.colNames)
         self.uiLogTable = swing.JTable(dataModel)
